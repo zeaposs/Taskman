@@ -1,22 +1,39 @@
+using MapsterMapper;
+using MassTransit;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
+using Taskman.Common;
+using Taskman.Common.Models;
+using Taskman.Messages;
 
 namespace Taskman.API.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
-    public class TaskManagerController : ControllerBase
+    [Route("[controller]/[action]")]
+    public class TaskManagerController(IMapper mapper) : ControllerBase
     {
-        private readonly ILogger<TaskManagerController> _logger;
-
-        public TaskManagerController(ILogger<TaskManagerController> logger)
+        [HttpGet]
+        public async Task<IActionResult> GetList(IRequestClient<GetTaskList> requestClient)
         {
-            _logger = logger;
+            var result = await requestClient.Create(new GetTaskList()).GetResponse<TaskDto[]>();
+            if (result == null)
+            {
+                return NoContent();
+            }
+
+            return Ok(result);
         }
 
-        [HttpGet(Name = "GetInfo")]
-        public async Task<string> Get()
+        [HttpPost]
+        public async Task AddTask(IPublishEndpoint publishEndpoint, NewTaskDto taskDto)
         {
-            return await Task.FromResult("Ok");
+            await publishEndpoint.Publish(mapper.Map<AddTask>(taskDto));
+        }
+
+        [HttpPost]
+        public async Task UpdateTaskStatus(IPublishEndpoint publishEndpoint, int taskId, TaskEntityStatus newStatus)
+        {
+            await publishEndpoint.Publish(new UpdateTaskStatus() { Id = taskId, Status = newStatus });
         }
     }
 }
